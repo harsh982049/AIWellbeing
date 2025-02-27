@@ -1,14 +1,15 @@
+// File: src/components/Navbar.jsx
+
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu } from "lucide-react"
 
-// Navbar component with responsive mobile menu
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
-  // Toggle login state (for demo purposes)
+  // Toggle login state (for demo/testing only)
   const toggleLogin = () => {
     setIsLoggedIn(!isLoggedIn)
   }
@@ -27,7 +28,7 @@ export default function Navbar() {
           <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
             AW
           </div>
-          <span className="text-lg font-bold">AI Emotional Wellbeing</span>
+          <span className="text-lg font-bold">MindEase</span>
         </motion.div>
 
         {/* Desktop navigation */}
@@ -58,14 +59,28 @@ export default function Navbar() {
           </motion.a>
         </nav>
 
-        {/* Authentication button */}
+        {/* Right-side Auth Actions (Desktop) */}
         <div className="hidden md:flex items-center gap-4">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button onClick={toggleLogin}>{isLoggedIn ? "Logout" : "Sign In / Register"}</Button>
-          </motion.div>
+          {/* Reserve space to avoid shifting: we use a min-w to match the widest possible content (logout vs. two buttons) */}
+          <div className="flex items-center gap-2 min-w-[180px] justify-end">
+            {isLoggedIn ? (
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button onClick={toggleLogin}>Logout</Button>
+              </motion.div>
+            ) : (
+              <>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button onClick={() => alert("Sign In logic here")}>Sign In</Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button variant="outline" onClick={() => alert("Register logic here")}>Register</Button>
+                </motion.div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile Menu */}
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden">
@@ -84,9 +99,18 @@ export default function Navbar() {
               <a href="#" className="text-sm font-medium hover:text-primary transition-colors">
                 Contact
               </a>
-              <Button onClick={toggleLogin} className="mt-4">
-                {isLoggedIn ? "Logout" : "Sign In / Register"}
-              </Button>
+
+              {/* Auth Buttons for mobile */}
+              {isLoggedIn ? (
+                <Button onClick={toggleLogin} className="mt-4">
+                  Logout
+                </Button>
+              ) : (
+                <div className="flex flex-col gap-2 mt-4">
+                  <Button onClick={() => alert("Sign In logic here")}>Sign In</Button>
+                  <Button variant="outline" onClick={() => alert("Register logic here")}>Register</Button>
+                </div>
+              )}
             </div>
           </SheetContent>
         </Sheet>
@@ -94,4 +118,3 @@ export default function Navbar() {
     </header>
   )
 }
-
