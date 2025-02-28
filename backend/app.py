@@ -6,9 +6,12 @@ from extensions import db
 from flask_migrate import Migrate
 from services.auth_service import register_user, login_user
 from flask_jwt_extended import JWTManager
+from flask_cors import CORS
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+CORS(app)
 
 # Initialize extensions
 db.init_app(app)
