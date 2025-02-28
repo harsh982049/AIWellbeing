@@ -1,6 +1,7 @@
 // File: src/pages/StressDetection.jsx
 
 import { useState, useEffect } from "react"
+/* eslint-disable-next-line no-unused-vars */
 import { motion } from "framer-motion"
 import Webcam from "react-webcam"
 import { Button } from "@/components/ui/button"

@@ -1,18 +1,27 @@
-// File: src/components/Navbar.jsx
-
-import { useState } from "react"
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu } from "lucide-react"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Navbar() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Toggle login state (for demo/testing only)
-  const toggleLogin = () => {
-    setIsLoggedIn(!isLoggedIn)
-  }
+  // Check if user is logged in based on localStorage token
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token);
+  }, []);
+
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setIsLoggedIn(false);
+    navigate("/login"); // Redirect to login page
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -34,7 +43,7 @@ export default function Navbar() {
         {/* Desktop navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <motion.a
-            href="#"
+            href="/"
             className="text-sm font-medium hover:text-primary transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -42,7 +51,7 @@ export default function Navbar() {
             Home
           </motion.a>
           <motion.a
-            href="#"
+            href="/features"
             className="text-sm font-medium hover:text-primary transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -50,7 +59,7 @@ export default function Navbar() {
             Features
           </motion.a>
           <motion.a
-            href="#"
+            href="/contact"
             className="text-sm font-medium hover:text-primary transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -61,19 +70,20 @@ export default function Navbar() {
 
         {/* Right-side Auth Actions (Desktop) */}
         <div className="hidden md:flex items-center gap-4">
-          {/* Reserve space to avoid shifting: we use a min-w to match the widest possible content (logout vs. two buttons) */}
           <div className="flex items-center gap-2 min-w-[180px] justify-end">
             {isLoggedIn ? (
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button onClick={toggleLogin}>Logout</Button>
+                <Button onClick={handleLogout}>Logout</Button>
               </motion.div>
             ) : (
               <>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button onClick={() => alert("Sign In logic here")}>Sign In</Button>
+                  <Button onClick={() => navigate("/login")}>Sign In</Button>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button variant="outline" onClick={() => alert("Register logic here")}>Register</Button>
+                  <Button variant="outline" onClick={() => navigate("/signup")}>
+                    Register
+                  </Button>
                 </motion.div>
               </>
             )}
@@ -90,25 +100,27 @@ export default function Navbar() {
           </SheetTrigger>
           <SheetContent side="right">
             <div className="flex flex-col gap-6 mt-6">
-              <a href="#" className="text-sm font-medium hover:text-primary transition-colors">
+              <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">
                 Home
-              </a>
-              <a href="#" className="text-sm font-medium hover:text-primary transition-colors">
+              </Link>
+              <Link to="/features" className="text-sm font-medium hover:text-primary transition-colors">
                 Features
-              </a>
-              <a href="#" className="text-sm font-medium hover:text-primary transition-colors">
+              </Link>
+              <Link to="/contact" className="text-sm font-medium hover:text-primary transition-colors">
                 Contact
-              </a>
+              </Link>
 
-              {/* Auth Buttons for mobile */}
+              {/* Auth Buttons for Mobile */}
               {isLoggedIn ? (
-                <Button onClick={toggleLogin} className="mt-4">
+                <Button onClick={handleLogout} className="mt-4">
                   Logout
                 </Button>
               ) : (
                 <div className="flex flex-col gap-2 mt-4">
-                  <Button onClick={() => alert("Sign In logic here")}>Sign In</Button>
-                  <Button variant="outline" onClick={() => alert("Register logic here")}>Register</Button>
+                  <Button onClick={() => navigate("/login")}>Sign In</Button>
+                  <Button variant="outline" onClick={() => navigate("/signup")}>
+                    Register
+                  </Button>
                 </div>
               )}
             </div>
@@ -116,5 +128,5 @@ export default function Navbar() {
         </Sheet>
       </div>
     </header>
-  )
+  );
 }
