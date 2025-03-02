@@ -9,8 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, Camera, Music } from "lucide-react"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
+import {useNavigate } from "react-router-dom";
 
-function StressDetection() {
+function StressDetection()
+{
+    const navigate = useNavigate();
     const [isWebcamActive, setIsWebcamActive] = useState(false)
     const [detectedEmotion, setDetectedEmotion] = useState(null)
     const [stressLevel, setStressLevel] = useState(null)
@@ -67,6 +70,14 @@ function StressDetection() {
         // No manual cleanup needed for react-webcam
         }
     }, [])
+
+    const handlePanicSOSClick = () => {
+        navigate('/panic-chatbot');
+    }
+
+    const handleMusicTherapyClick = () => {
+        navigate('/music-therapy');
+    }
 
     return (
         <div className="flex min-h-screen flex-col">
@@ -155,10 +166,10 @@ function StressDetection() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
                             >
-                            <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white mr-4">
+                            <Button onClick={handlePanicSOSClick} size="lg" className="bg-red-600 hover:bg-red-700 text-white mr-4">
                                 <AlertCircle className="mr-2 h-5 w-5" /> Panic SOS
                             </Button>
-                            <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white">
+                            <Button onClick={handleMusicTherapyClick} size="lg" className="bg-green-600 hover:bg-green-700 text-white">
                                 <Music className="mr-2 h-5 w-5" /> Music Therapy
                             </Button>
                             </motion.div>

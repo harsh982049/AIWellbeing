@@ -51,14 +51,14 @@ export default function Navbar() {
           >
             Home
           </motion.a>
-          <motion.a
+          {/* <motion.a
             href="/features"
             className="text-sm font-medium hover:text-primary transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
             Features
-          </motion.a>
+          </motion.a> */}
           <motion.a
             href="/contact"
             className="text-sm font-medium hover:text-primary transition-colors"
