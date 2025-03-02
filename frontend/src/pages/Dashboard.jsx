@@ -1,3 +1,4 @@
+/* eslint-disable-next-line no-unused-vars */
 import { motion } from "framer-motion"
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
@@ -87,10 +88,8 @@ const researchTopics = [
 export default function Dashboard() {
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Navbar */}
       <Navbar />
 
-      {/* Main content */}
       <main className="flex-1">
         {/* Hero Section */}
         <motion.section
@@ -416,7 +415,7 @@ export default function Dashboard() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mt-6">
                 <Button size="lg">Download Paper</Button>
-                <Button size="lg" variant="outline">
+                <Button size="lg" variant="outline" onClick={() => window.open('https://github.com/harsh982049/AIWellbeing', '_blank', 'noopener,noreferrer')}>
                   View GitHub Repository
                 </Button>
               </div>
@@ -425,8 +424,7 @@ export default function Dashboard() {
         </motion.section>
       </main>
 
-      {/* Footer */}
-      <Footer />
+      <Footer/>
     </div>
   )
 }
