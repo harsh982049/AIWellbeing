@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import Picker from "@emoji-mart/react"; // Emoji Picker Import
+import { Smile } from "lucide-react"; // Emoji Icon
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
 
@@ -18,7 +20,9 @@ const PanicSOSChatbot = () => {
         },
     ])
     const [inputMessage, setInputMessage] = useState("");
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false); 
     const scrollAreaRef = useRef(null);
+    const emojiPickerRef = useRef(null); // Ref for emoji picker
     // const messagesEndRef = useRef(null);
 
     // useEffect(() => {
@@ -43,17 +47,24 @@ const PanicSOSChatbot = () => {
         }
     }, [messages]);
 
-    // This function will handle scrolling to the bottom of messages
-    // const scrollToBottom = () => {
-    //     if (messagesEndRef.current) {
-    //         messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    //     }
-    // }
-    
-    // Scroll to bottom whenever messages change
-    // useEffect(() => {
-    //     scrollToBottom();
-    // }, [messages]);
+    // Click Outside to Close Emoji Picker
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if(emojiPickerRef.current && !emojiPickerRef.current.contains(event.target))
+            {
+                setShowEmojiPicker(false); // Close the picker
+            }
+        };
+
+        if(showEmojiPicker)
+        {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [showEmojiPicker]);
 
     const handleSendMessage = (e) => {
         e.preventDefault()
@@ -107,6 +118,11 @@ const PanicSOSChatbot = () => {
         setInputMessage("");
     }
 
+    const handleEmojiSelect = (emoji) => {
+        setInputMessage((prev) => prev + emoji.native); // Append emoji to input field
+        setShowEmojiPicker(false); // Close emoji picker after selection
+    };
+
     return (
         <>
             <Navbar/>
@@ -152,6 +168,18 @@ const PanicSOSChatbot = () => {
                     </CardContent>
                     <CardFooter>
                         <form onSubmit={handleSendMessage} className="flex w-full gap-2">
+                            {/* Emoji Picker Button */}
+                            <div className="relative">
+                                <Button type="button" variant="outline" size="icon" onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
+                                    <Smile className="h-5 w-5" />
+                                </Button>
+                                {showEmojiPicker && (
+                                    <div ref={emojiPickerRef} className="absolute bottom-full mb-2 left-0 bg-white shadow-lg rounded-lg z-50">
+                                        <Picker onEmojiSelect={handleEmojiSelect} />
+                                    </div>
+                                )}
+                            </div>
+
                             <Input
                             type="text"
                             placeholder="Type your message here..."
@@ -159,6 +187,7 @@ const PanicSOSChatbot = () => {
                             onChange={(e) => setInputMessage(e.target.value)}
                             className="flex-grow"
                             />
+
                             <Button type="submit">Send</Button>
                         </form>
                     </CardFooter>
