@@ -46,7 +46,6 @@ export default function SignUp()
 		},
 	}
 
-	// Basic client-side validations
 	const validateForm = () => {
 		if(!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim())
 		{

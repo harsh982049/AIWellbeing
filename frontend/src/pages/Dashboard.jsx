@@ -3,7 +3,6 @@ import { motion } from "framer-motion"
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
 
-// shadcn/ui imports
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -70,7 +69,7 @@ const features = [
       "Explores the intersection of AI and sound therapy through personalized relaxation exercises for emotional regulation.",
     icon: Music,
     color: "bg-green-100 dark:bg-green-900",
-    url: "/music-therapy"
+    url: "/music-relaxation"
   },
 ]
 
@@ -134,7 +133,6 @@ export default function Dashboard() {
           </div>
         </motion.section>
 
-        {/* Features Section - UPDATED: card structure for consistent button alignment */}
         <section className="py-16 md:py-24">
           <div className="container px-4 md:px-6">
             <motion.div
@@ -256,7 +254,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Project Highlights - Replacing Research Documentation */}
         <section className="py-16 md:py-24">
           <div className="container px-4 md:px-6">
             <motion.div
@@ -344,7 +341,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Feature Detail Sections - Replacing Team/FAQ/CTA sections */}
         <section className="py-16 md:py-24 bg-primary/5">
           <div className="container px-4 md:px-6">
             <motion.div
@@ -499,7 +495,7 @@ export default function Dashboard() {
                       </div>
                     </CardContent>
                     <CardFooter>
-                      <Button onClick={() => window.location.href = "/music-therapy"}>
+                      <Button onClick={() => window.location.href = "/music-relaxation"}>
                         Try Music Therapy
                       </Button>
                     </CardFooter>
@@ -510,7 +506,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Final CTA Section */}
         <motion.section
           className="py-16 md:py-24"
           initial={{ opacity: 0 }}

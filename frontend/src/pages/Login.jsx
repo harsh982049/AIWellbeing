@@ -14,7 +14,6 @@ import "react-toastify/dist/ReactToastify.css"
 export default function Login() {
 	const navigate = useNavigate();
 
-	// State for form inputs
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -70,7 +69,7 @@ export default function Login() {
 				toast.success("Login successful!");
 				localStorage.setItem("token", response.data.token);
 				localStorage.setItem("user", JSON.stringify(response.data.user));
-				navigate("/"); // Redirect after login
+				navigate("/");
 			}
 		}
 		catch(error)
@@ -84,7 +83,6 @@ export default function Login() {
 	return (
 		<>
 			<div className="flex flex-col md:flex-row min-h-screen">
-			{/* Left side - Project content */}
 				<motion.div
 					className="w-full md:w-1/2 bg-gradient-to-br from-blue-600 to-purple-700 text-white p-8 md:p-12 flex flex-col justify-center"
 					initial={{ x: -50, opacity: 0 }}
@@ -123,7 +121,6 @@ export default function Login() {
 					</div>
 				</motion.div>
 
-				{/* Right side - Login form */}
 				<motion.div
 					className="w-full md:w-1/2 bg-white dark:bg-gray-950 p-8 md:p-12 flex items-center justify-center"
 					initial={{ x: 50, opacity: 0 }}
@@ -196,7 +193,6 @@ export default function Login() {
 						</Button>
 						</motion.div>
 
-						{/* Sign up link */}
 						<motion.div variants={itemVariants} className="text-center mt-6">
 						<p className="text-gray-600 dark:text-gray-400">
 							Don't have an account?{" "}

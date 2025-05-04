@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import Picker from "@emoji-mart/react"; // Emoji Picker Import
-import { Smile } from "lucide-react"; // Emoji Icon
+import Picker from "@emoji-mart/react";
+import { Smile } from "lucide-react"; 
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
 
@@ -32,27 +32,24 @@ const PanicSOSChatbot = () => {
     //     }
     // }, [messages]) // Updated dependency
 
-    // This effect will handle scrolling within the ScrollArea component
     useEffect(() => {
-        // Make sure we have access to the DOM and messages have been updated
-        if (scrollAreaRef.current) {
-            // Access the actual scroll viewport from the ScrollArea component
+        if(scrollAreaRef.current)
+        {
             const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-            if (scrollViewport) {
-                // Set the scroll position to the maximum possible value
+            if(scrollViewport)
+            {
                 setTimeout(() => {
                     scrollViewport.scrollTop = scrollViewport.scrollHeight;
-                }, 100); // Small delay to ensure content is rendered
+                }, 100);
             }
         }
     }, [messages]);
 
-    // Click Outside to Close Emoji Picker
     useEffect(() => {
         const handleClickOutside = (event) => {
             if(emojiPickerRef.current && !emojiPickerRef.current.contains(event.target))
             {
-                setShowEmojiPicker(false); // Close the picker
+                setShowEmojiPicker(false); 
             }
         };
 
@@ -73,7 +70,6 @@ const PanicSOSChatbot = () => {
         const newUserMessage = {id: messages.length + 1, content: inputMessage, sender: "user"}
         setMessages([...messages, newUserMessage])
 
-        // Simulate bot response
         setTimeout(() => {
         let botResponse;
             if(inputMessage.toLowerCase().includes("panic") || inputMessage.toLowerCase().includes("anxiety"))
@@ -119,8 +115,8 @@ const PanicSOSChatbot = () => {
     }
 
     const handleEmojiSelect = (emoji) => {
-        setInputMessage((prev) => prev + emoji.native); // Append emoji to input field
-        setShowEmojiPicker(false); // Close emoji picker after selection
+        setInputMessage((prev) => prev + emoji.native);
+        setShowEmojiPicker(false);
     };
 
     return (
@@ -162,13 +158,10 @@ const PanicSOSChatbot = () => {
                                 </motion.div>
                             ))}
                             </AnimatePresence>
-                            {/* This is an empty div that we'll use as a reference to scroll to */}
-                            {/* <div ref={messagesEndRef} /> */}
                         </ScrollArea>
                     </CardContent>
                     <CardFooter>
                         <form onSubmit={handleSendMessage} className="flex w-full gap-2">
-                            {/* Emoji Picker Button */}
                             <div className="relative">
                                 <Button type="button" variant="outline" size="icon" onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
                                     <Smile className="h-5 w-5" />

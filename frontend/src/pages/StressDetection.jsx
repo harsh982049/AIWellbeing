@@ -18,7 +18,6 @@ function StressDetection()
     const [detectedEmotion, setDetectedEmotion] = useState(null)
     const [stressLevel, setStressLevel] = useState(null)
 
-    // Animation variants
     const containerVariants = {
         hidden: { opacity: 0 },
         visible: {
@@ -36,7 +35,6 @@ function StressDetection()
         },
     }
 
-    // Simulated stress detection (replace with actual backend integration)
     const detectStress = () => {
         const emotions = ["Calm", "Happy", "Anxious", "Stressed", "Neutral"]
         const levels = ["Low", "Medium", "High"]
@@ -44,12 +42,12 @@ function StressDetection()
         setInterval(() => {
             setDetectedEmotion(emotions[Math.floor(Math.random() * emotions.length)])
             setStressLevel(levels[Math.floor(Math.random() * levels.length)])
-            }, 3000) // Update every 3 seconds for demo purposes
+            }, 3000) 
     }
 
     const activateWebcam = () => {
         setIsWebcamActive(true)
-        detectStress() // Start simulated stress detection
+        detectStress()
     }
 
     const getSuggestion = () => {
@@ -67,7 +65,6 @@ function StressDetection()
 
     useEffect(() => {
         return () => {
-        // No manual cleanup needed for react-webcam
         }
     }, [])
 
@@ -131,7 +128,6 @@ function StressDetection()
                     </Card>
                     </motion.div>
 
-                    {/* Right Column: Results */}
                     <motion.div className="w-full md:w-1/2 flex flex-col gap-6" variants={itemVariants}>
                     <Card>
                         <CardHeader>

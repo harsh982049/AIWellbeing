@@ -8,18 +8,26 @@ import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import StressDetection from './pages/StressDetection';
 import PanicSOSChatbot from './pages/PanicSOSChatbot';
+import StressVisualizationPage from './pages/StressVisualization';
+import RelaxationTherapyPage from './pages/RelaxationTherapyPage';
+import ContactPage from './pages/ContactPage';
+import TrackUserMovements from './pages/TrackUserMovements';
 
 function App() {
 	return (
 		<Router>
 			<Routes>
 				<Route path="/" element={<Dashboard/>}/>
+				<Route path="/contact" element={<ContactPage/>}/>
 
 				{/* Login and Register routes */}
 				<Route path="/login" element={<Login/>}/>
 				<Route path="/signup" element={<SignUp/>}/>
 				<Route path="/stress-detection" element={<StressDetection/>}/>
+				<Route path="/stress-visualization" element={<StressVisualizationPage/>}/>
 				<Route path="/panic-chatbot" element={<PanicSOSChatbot/>}/>
+				<Route path="/music-relaxation" element={<RelaxationTherapyPage/>}/>
+				<Route path="/track-movements" element={<TrackUserMovements/>}/>
 			</Routes>
 		</Router>
 	)

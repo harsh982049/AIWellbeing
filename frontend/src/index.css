@@ -64,6 +64,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* @apply px-4; */
+    @apply px-4;
   }
 }
