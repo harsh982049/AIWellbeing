@@ -69,16 +69,16 @@ for name, model in models.items():
         # model.fit(X_train_resampled, y_train_resampled)
         y_pred = model.predict(X_test)
     
-    if name == "Random Forest":
-        # Save the model
-        with open("rf_model_30s.pkl", "wb") as f:
-            pickle.dump(model, f)
+    # if name == "Random Forest":
+    #     # Save the model
+    #     with open("rf_model_30s.pkl", "wb") as f:
+    #         pickle.dump(model, f)
 
-        # Save the scaler (used for scaled models)
-        with open("scaler_30s.pkl", "wb") as f:
-            pickle.dump(scaler, f)
+    #     # Save the scaler (used for scaled models)
+    #     with open("scaler_30s.pkl", "wb") as f:
+    #         pickle.dump(scaler, f)
 
-        print("✅ Random Forest model and scaler saved.")
+    #     print("✅ Random Forest model and scaler saved.")
     
     accuracy = accuracy_score(y_test, y_pred)
     results[name] = accuracy

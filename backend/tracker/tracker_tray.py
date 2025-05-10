@@ -17,10 +17,9 @@ import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import pickle  # Added for loading the ML model
 
-# -----------------------
 # Global State Variables
-# -----------------------
 keystrokes = []
 backspace_count = 0
 mouse_movements = []
@@ -34,10 +33,33 @@ paused = False
 # Process management
 pid_file = "tracker_tray.pid"
 
-# -----------------------
+# Paths to the saved model and scaler
+model_path = "C:\\Users\\harsh\\OneDrive\\Desktop\\MajorProject\\ML\\rf_model_30s.pkl"
+scaler_path = "C:\\Users\\harsh\\OneDrive\\Desktop\\MajorProject\\ML\\scaler_30s.pkl"
+
 # Logging Setup
-# -----------------------
-log_file_path = "stress_log1.csv"
+log_file_path = "stress_log2.csv"
+
+# Load the model and scaler
+try:
+    with open(model_path, 'rb') as f:
+        stress_model = pickle.load(f)
+    
+    with open(scaler_path, 'rb') as f:
+        scaler = pickle.load(f)
+    
+    model_loaded = True
+    print("✅ ML model and scaler loaded successfully")
+except Exception as e:
+    model_loaded = False
+    print(f"❌ Error loading ML model: {e}")
+
+# Feature columns used for prediction (must match what the model was trained on)
+feature_columns = [
+    'avg_keypress_duration', 'keypress_count', 'backspace_count', 'error_rate',
+    'avg_mouse_speed', 'mouse_move_count', 'mouse_click_count',
+    'hour', 'day_of_week', 'daylight_morning', 'daylight_evening', 'session_active'
+]
 
 # Create the log file if it doesn't exist
 if not os.path.exists(log_file_path):
@@ -46,12 +68,19 @@ if not os.path.exists(log_file_path):
         writer.writerow([
             "timestamp", "typing_speed", "backspace_rate", "mouse_jitter", 
             "key_rhythm_consistency", "idle_time", "mouse_click_rate", 
-            "stress_level", "stress_factors"
+            "stress_level", "stress_factors", "ml_prediction"  # Added ML prediction column
         ])
+        
+# ML prediction log file (to track all features and predictions)
+ml_log_file_path = "ml_predictions.csv"
+if not os.path.exists(ml_log_file_path):
+    with open(ml_log_file_path, mode='w', newline='') as f:
+        writer = csv.writer(f)
+        header = ["timestamp", "ml_prediction"] + feature_columns
+        writer.writerow(header)
 
-# -----------------------
+
 # Process Management
-# -----------------------
 def check_existing_process():
     """Check if another instance is running and terminate it if found"""
     if os.path.exists(pid_file):
@@ -216,12 +245,100 @@ def detect_stress(metrics):
     
     return (level, stress_score, factors)
 
-def show_popup(status, score, reasons):
+def predict_stress_with_ml(data):
+    """
+    Predict stress using the loaded ML model
+    Returns 1 for stressed, 0 for not stressed
+    """
+    if not model_loaded:
+        return None  # Return None if model failed to load
+    
+    try:
+        # Create a DataFrame with the expected features
+        features_df = pd.DataFrame([data], columns=feature_columns)
+        
+        # Scale the features if the model was trained on scaled data
+        # For RandomForest, scaling is not necessary but other models may need it
+        # features_scaled = scaler.transform(features_df)
+        
+        # Make prediction
+        prediction = stress_model.predict(features_df)[0]
+        
+        # Get probability for the "stressed" class (class 1)
+        # probability = stress_model.predict_proba(features_df)[0][1]
+        
+        return prediction
+    except Exception as e:
+        print(f"Error making prediction: {e}")
+        return None
+
+def collect_features_for_ml():
+    """
+    Collect and format features for the ML model.
+    These must match the feature columns the model was trained on.
+    """
+    # Get the current time
+    now = datetime.now()
+    
+    # Calculate metrics for ML prediction
+    avg_keypress_dur = 0
+    if len(key_press_times) >= 2:
+        intervals = [t2 - t1 for t1, t2 in zip(key_press_times, key_press_times[1:])]
+        if intervals:
+            avg_keypress_dur = sum(intervals) / len(intervals)
+    
+    # Count keypresses
+    keypresses = len(keystrokes)
+    
+    # Error rate (backspace / total keypresses)
+    error_rate = backspace_count / keypresses if keypresses > 0 else 0
+    
+    # Average mouse speed
+    avg_mouse_speed = calculate_mouse_jitter()  # Using jitter as a proxy for speed
+    
+    # Mouse movement count
+    mouse_move_count = len(mouse_movements)
+    
+    # Check if session is active (any keyboard or mouse activity)
+    session_active = 1 if keypresses > 0 or mouse_move_count > 0 or mouse_click_count > 0 else 0
+    
+    # Time features
+    hour = now.hour
+    day_of_week = now.weekday()  # 0 = Monday, 6 = Sunday
+    
+    # Daylight indicators (simplified, adjust as needed)
+    daylight_morning = 1 if 6 <= hour <= 11 else 0
+    daylight_evening = 1 if 18 <= hour <= 21 else 0
+    
+    # Create feature dictionary
+    features = {
+        'avg_keypress_duration': avg_keypress_dur,
+        'keypress_count': keypresses,
+        'backspace_count': backspace_count,
+        'error_rate': error_rate,
+        'avg_mouse_speed': avg_mouse_speed,
+        'mouse_move_count': mouse_move_count,
+        'mouse_click_count': mouse_click_count,
+        'hour': hour,
+        'day_of_week': day_of_week,
+        'daylight_morning': daylight_morning,
+        'daylight_evening': daylight_evening,
+        'session_active': session_active
+    }
+    
+    return features
+
+def show_popup(status, score, reasons, ml_prediction=None):
     """Display a notification with stress status"""
     if not reasons:
         message = "You're doing fine. Keep going!"
     else:
         message = f"Stress level {score}/10: {', '.join(reasons)}"
+    
+    # Add ML prediction if available
+    if ml_prediction is not None:
+        ml_status = "STRESSED" if ml_prediction == 1 else "NOT STRESSED"
+        message += f"\nML Prediction: {ml_status}"
     
     try:
         # Try different notification approaches
@@ -263,9 +380,8 @@ def show_tkinter_popup(title, message):
     except Exception as e:
         print(f"Tkinter popup error: {e}")
 
-# -----------------------
+
 # Event Handlers
-# -----------------------
 def on_press(key):
     if paused or not running:
         return
@@ -321,9 +437,8 @@ def on_move(x, y):
     if len(mouse_movements) > 100:
         mouse_movements.pop(0)
 
-# -----------------------
+
 # Main Tracking Logic
-# -----------------------
 def monitor_behavior():
     while running:
         if not paused and running:
@@ -346,19 +461,38 @@ def monitor_behavior():
                     'mouse_clicks': mc
                 }
                 
-                # Detect stress
+                # Detect stress using rule-based method
                 status, score, factors = detect_stress(metrics)
                 
-                # Show notification
-                show_popup(status, score, factors)
+                # Collect features for ML prediction
+                ml_features = collect_features_for_ml()
+                
+                # Make ML prediction if model is loaded
+                ml_prediction = predict_stress_with_ml(ml_features) if model_loaded else None
+                
+                # Show notification with both rule-based and ML results
+                show_popup(status, score, factors, ml_prediction)
 
-                # Log data
+                # Current timestamp
+                timestamp = time.time()
+                
+                # Log data to the main log file
                 with open(log_file_path, mode='a', newline='') as f:
                     writer = csv.writer(f)
                     writer.writerow([
-                        time.time(), ts, br, mj, kr, it, mc, score, 
-                        ','.join(factors) if factors else "none"
+                        timestamp, ts, br, mj, kr, it, mc, score, 
+                        ','.join(factors) if factors else "none",
+                        int(ml_prediction) if ml_prediction is not None else "N/A"
                     ])
+                
+                # Log data to the ML-specific log file
+                if model_loaded:
+                    with open(ml_log_file_path, mode='a', newline='') as f:
+                        writer = csv.writer(f)
+                        ml_data = [timestamp, int(ml_prediction)]
+                        for feature in feature_columns:
+                            ml_data.append(ml_features[feature])
+                        writer.writerow(ml_data)
 
                 # Reset counters
                 keystrokes.clear()
@@ -372,15 +506,13 @@ def monitor_behavior():
             except Exception as e:
                 print(f"Error in monitor thread: {e}")
 
-        time.sleep(30)
+        time.sleep(30)  # Take measurements every 30 seconds
         
         # Break the loop if not running
         if not running:
             break
 
-# -----------------------
 # Data Visualization
-# -----------------------
 def show_graphs():
     """Display graphs of tracked metrics"""
     try:
@@ -412,11 +544,22 @@ def show_graphs():
         
         fig1 = Figure(figsize=(10, 6))
         ax1 = fig1.add_subplot(111)
-        ax1.plot(df['datetime'], df['stress_level'], 'r-', linewidth=2)
+        ax1.plot(df['datetime'], df['stress_level'], 'r-', linewidth=2, label='Rule-Based')
+        
+        # Plot ML predictions if available
+        if 'ml_prediction' in df.columns and df['ml_prediction'].dtype != object:
+            ml_data = df[df['ml_prediction'].notna()]
+            if not ml_data.empty:
+                # Convert binary predictions to a stress scale (0 to 10) for visualization
+                ml_data['ml_stress_scale'] = ml_data['ml_prediction'] * 10
+                ax1.plot(ml_data['datetime'], ml_data['ml_stress_scale'], 'b--', linewidth=1.5, 
+                         label='ML Prediction (scaled)')
+        
         ax1.set_title('Stress Level Over Time')
         ax1.set_xlabel('Time')
         ax1.set_ylabel('Stress Level (0-10)')
         ax1.grid(True)
+        ax1.legend()
         
         # Add a horizontal line at moderate stress threshold
         ax1.axhline(y=4, color='orange', linestyle='--', alpha=0.7)
@@ -483,23 +626,63 @@ def show_graphs():
             timestamp = row['datetime'].strftime('%Y-%m-%d %H:%M:%S')
             level = row['stress_level']
             factors = row['factors']
+            ml_pred = row.get('ml_prediction', 'N/A')
             
             factor_text.insert(tk.END, f"Time: {timestamp}\n")
             factor_text.insert(tk.END, f"Stress Level: {level}/10\n")
+            
+            # Add ML prediction if available
+            if ml_pred != 'N/A':
+                ml_status = "STRESSED" if ml_pred == 1 else "NOT STRESSED"
+                factor_text.insert(tk.END, f"ML Prediction: {ml_status}\n")
+                
             factor_text.insert(tk.END, f"Factors: {factors}\n\n")
             
             # Add tags for color coding
             if level <= 3:
-                factor_text.tag_add("calm", f"{factor_text.index('end-3l')} linestart", f"{factor_text.index('end-3l')} lineend")
+                factor_text.tag_add("calm", f"{factor_text.index('end-4l')} linestart", f"{factor_text.index('end-4l')} lineend")
                 factor_text.tag_config("calm", foreground="green")
             elif level <= 6:
-                factor_text.tag_add("moderate", f"{factor_text.index('end-3l')} linestart", f"{factor_text.index('end-3l')} lineend")
+                factor_text.tag_add("moderate", f"{factor_text.index('end-4l')} linestart", f"{factor_text.index('end-4l')} lineend")
                 factor_text.tag_config("moderate", foreground="orange")
             else:
-                factor_text.tag_add("high", f"{factor_text.index('end-3l')} linestart", f"{factor_text.index('end-3l')} lineend")
+                factor_text.tag_add("high", f"{factor_text.index('end-4l')} linestart", f"{factor_text.index('end-4l')} lineend")
                 factor_text.tag_config("high", foreground="red")
         
         factor_text.config(state=tk.DISABLED)
+        
+        # If ML log file exists, add a tab for ML predictions
+        if os.path.exists(ml_log_file_path) and os.path.getsize(ml_log_file_path) > 0:
+            try:
+                ml_df = pd.read_csv(ml_log_file_path)
+                if len(ml_df) > 0:
+                    # Tab 5: ML Predictions
+                    tab5 = ttk.Frame(notebook)
+                    notebook.add(tab5, text="ML Predictions")
+                    
+                    # Convert timestamp to datetime
+                    ml_df['datetime'] = pd.to_datetime(ml_df['timestamp'], unit='s')
+                    
+                    fig5 = Figure(figsize=(10, 6))
+                    ax5 = fig5.add_subplot(111)
+                    
+                    # Plot the predictions (0 or 1) as points
+                    ax5.plot(ml_df['datetime'], ml_df['ml_prediction'], 'bo-', markersize=6)
+                    
+                    # Set y-axis limits and ticks for binary predictions
+                    ax5.set_ylim(-0.1, 1.1)
+                    ax5.set_yticks([0, 1])
+                    ax5.set_yticklabels(['Not Stressed', 'Stressed'])
+                    
+                    ax5.set_title('ML Stress Predictions Over Time')
+                    ax5.set_xlabel('Time')
+                    ax5.grid(True)
+                    
+                    canvas5 = FigureCanvasTkAgg(fig5, tab5)
+                    canvas5.draw()
+                    canvas5.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            except Exception as e:
+                print(f"Error creating ML predictions tab: {e}")
         
         # Add a close button at the bottom
         close_btn = ttk.Button(root, text="Close", command=root.destroy)
@@ -511,9 +694,8 @@ def show_graphs():
         print(f"Error displaying graphs: {e}")
         show_popup("Error", f"Failed to display graphs: {str(e)}", [])
 
-# -----------------------
+
 # Tray Icon UI
-# -----------------------
 def create_image():
     """Create the tray icon image"""
     image = Image.new('RGB', (64, 64), color='navy')
@@ -560,9 +742,8 @@ def on_show_graphs(icon, item):
     graph_thread.daemon = True
     graph_thread.start()
 
-# -----------------------
+
 # Program Entrypoint
-# -----------------------
 if __name__ == '__main__':
     # Check for existing instances and terminate them
     check_existing_process()
