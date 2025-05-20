@@ -8,8 +8,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from xgboost import XGBClassifier
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 
-from imblearn.over_sampling import SMOTE
+
+# from imblearn.over_sampling import SMOTE
 
 # Load dataset
 df = pd.read_csv("C:\\Users\\harsh\\OneDrive\\Desktop\\MajorProject\\ML\\session_features_30s.csv")
@@ -80,6 +83,33 @@ for name, model in models.items():
 
     #     print("✅ Random Forest model and scaler saved.")
     
+    # if name == "Random Forest":
+    #     # Confusion Matrix Plot
+    #     cm = confusion_matrix(y_test, y_pred)
+    #     plt.figure(figsize=(5, 4))
+    #     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Not Stressed", "Stressed"], yticklabels=["Not Stressed", "Stressed"])
+    #     plt.title("Confusion Matrix - Random Forest")
+    #     plt.xlabel("Predicted")
+    #     plt.ylabel("Actual")
+    #     plt.tight_layout()
+    #     plt.savefig("confusion_matrix_mouse.png")
+    #     plt.show()
+
+    #     # Feature Importance Plot
+    #     importances = model.feature_importances_
+    #     indices = sorted(range(len(importances)), key=lambda i: importances[i], reverse=True)
+    #     sorted_features = [feature_columns[i] for i in indices]
+    #     sorted_importances = [importances[i] for i in indices]
+
+    #     plt.figure(figsize=(8, 6))
+    #     sns.barplot(x=sorted_importances, y=sorted_features, palette="viridis")
+    #     plt.title("Feature Importance - Random Forest")
+    #     plt.xlabel("Importance")
+    #     plt.ylabel("Feature")
+    #     plt.tight_layout()
+    #     plt.savefig("feature_importance_mouse.png")
+    #     plt.show()
+    
     accuracy = accuracy_score(y_test, y_pred)
     results[name] = accuracy
     print(classification_report(y_test, y_pred, target_names=["Not Stressed", "Stressed"]))
@@ -90,3 +120,15 @@ for name, model in models.items():
 print("\nModel Accuracies:")
 for name, accuracy in results.items():
     print(f"{name}: {accuracy:.4f}")
+    
+# # Plot model comparison
+# plt.figure(figsize=(8, 5))
+# model_names = list(results.keys())
+# accuracies = list(results.values())
+# sns.barplot(x=accuracies, y=model_names, palette="Blues_d")
+# plt.xlabel("Accuracy")
+# plt.title("Model Accuracy Comparison - Behavioral Stress Detection")
+# plt.xlim(0, 1)
+# plt.tight_layout()
+# plt.savefig("model_comparison_mouse.png")
+# plt.show()
