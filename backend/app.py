@@ -1,11 +1,10 @@
-# app.py
-
-from flask import Flask, request
+from flask import Flask, request, Response, stream_with_context
 from config import Config
 from extensions import db
 from flask_migrate import Migrate
 from services.auth_service import register_user, login_user
 from services.tracking_service import start_tracking, stop_tracking
+from services.chatbot_service import chat_with_bot, reset_session, sse_stream
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 
@@ -58,6 +57,28 @@ def start_tracking_route():
 @app.route("/api/stop_tracking", methods=["POST"])
 def stop_tracking_route():
     return stop_tracking()
+
+@app.route("/api/chatbot", methods=["POST"])
+def chatbot_route():
+    data = request.get_json()
+    # print(data)
+    return chat_with_bot(data)  # returns (json, status)
+
+@app.route("/api/chatbot/stream", methods=["GET"])
+def chatbot_stream_route():
+    return Response(stream_with_context(
+        sse_stream(request.args.get("session_id",""), request.args.get("message",""))
+    ), headers={
+        "Cache-Control": "no-cache",
+        "Content-Type": "text/event-stream",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive",
+    })
+
+@app.route("/api/chatbot/reset", methods=["POST"])
+def chatbot_reset_route():
+    data = request.get_json()
+    return reset_session(data)
 
 if __name__ == "__main__":
     app.run(debug=True)
