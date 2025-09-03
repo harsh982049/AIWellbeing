@@ -5,6 +5,7 @@ from flask_migrate import Migrate
 from services.auth_service import register_user, login_user
 from services.tracking_service import start_tracking, stop_tracking
 from services.chatbot_service import chat_with_bot, reset_session, sse_stream
+from services.stress_face_service import face_health, face_predict
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 
@@ -79,6 +80,17 @@ def chatbot_stream_route():
 def chatbot_reset_route():
     data = request.get_json()
     return reset_session(data)
+
+# --------------------------
+# Face stress detection endpoints
+# --------------------------
+@app.route("/api/stress/face/health", methods=["GET"])
+def stress_face_health():
+    return face_health()
+
+@app.route("/api/stress/face/predict", methods=["POST"])
+def stress_face_predict():
+    return face_predict(request)
 
 if __name__ == "__main__":
     app.run(debug=True)
