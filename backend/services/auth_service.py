@@ -51,8 +51,8 @@ def login_user(data):
     if user and check_password_hash(user.password, password):
         # Generate a JWT token; token expires in 1 hour
         access_token = create_access_token(
-            identity=user.id,
-            expires_delta=datetime.timedelta(hours=1)
+            identity=str(user.id),
+            expires_delta=datetime.timedelta(days=30)
         )
         return jsonify({
             "message": "Login successful",
