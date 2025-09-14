@@ -1,25 +1,3 @@
-# services/stress_behavior_service.py
-# CPU-only inference for behavior-based stress (keyboard/mouse aggregates).
-# Exposes:
-#   - init_service()
-#   - health_check() -> dict
-#   - predict_from_row(row: dict, user_id: str) -> dict
-#   - train_user_calibrator(user_id: str = "harsh", min_rows: int = 200) -> str (path)
-#
-# Place this file in your project's services/ folder.
-# Project layout (example):
-#   <project_root>/
-#     artifacts/
-#       global_head_regression_behavior.joblib
-#       global_head_scaler.joblib
-#       global_head_meta.json
-#       calibrators/ (optional; created later)
-#     labels/
-#       stress_30s.csv
-#     services/
-#       stress_behavior_service.py
-#     app.py
-
 from __future__ import annotations
 import json
 from pathlib import Path
@@ -72,27 +50,68 @@ def _extract_features(row: Dict, feature_names) -> np.ndarray:
     """Build a [1, D] feature vector; missing fields default to 0.0."""
     return np.array([float(row.get(name, 0.0) or 0.0) for name in feature_names], dtype=np.float32)[None, :]
 
+def _nz_count(vec: np.ndarray) -> int:
+    return int(np.count_nonzero(np.asarray(vec)))
 
-# ---------- Smoother / Hysteresis ----------
+
+# ---------- Activity-aware EMA + hysteresis ----------
 class TemporalSmoother:
-    """Simple EMA + hysteresis to stabilize predictions across windows."""
-    def __init__(self, alpha: float = 0.5, on_thresh: float = 0.55, off_thresh: float = 0.45):
-        self.alpha = float(alpha)
-        self.on_t = float(on_thresh)
-        self.off_t = float(off_thresh)
-        self._ema = None  # type: Optional[float]
-        self._state = 0   # 0=off, 1=on
+    """
+    Activity-aware EMA + hysteresis.
 
-    def step(self, p: float) -> Tuple[float, int]:
+    - alpha_active: normal smoothing when there's activity
+    - alpha_idle:   much faster convergence when idle (decay quickly)
+    - after 'idle_reset_k' consecutive idle windows, reset EMA to baseline
+    """
+    def __init__(
+        self,
+        alpha_active: float = 0.35,
+        alpha_idle: float   = 0.85,
+        on_thresh: float    = 0.60,
+        off_thresh: float   = 0.40,
+        idle_reset_k: int   = 2,
+        baseline: float     = 0.20,
+    ):
+        self.alpha_active = float(alpha_active)
+        self.alpha_idle   = float(alpha_idle)
+        self.on_t   = float(on_thresh)
+        self.off_t  = float(off_thresh)
+        self.idle_reset_k = int(idle_reset_k)
+        self.baseline = float(baseline)
+
+        self._ema: float | None = None
+        self._state = 0
+        self._idle_count = 0
+
+    def step(self, p: float, is_idle: bool) -> tuple[float, int]:
+        # choose alpha based on activity
+        a = self.alpha_idle if is_idle else self.alpha_active
+
         if self._ema is None:
             self._ema = p
         else:
-            self._ema = self.alpha * p + (1 - self.alpha) * self._ema
+            self._ema = a * p + (1 - a) * self._ema
+
+        # if idle repeatedly, snap back toward baseline quickly
+        if is_idle:
+            self._idle_count += 1
+            if self._idle_count >= self.idle_reset_k:
+                # hard reset EMA to baseline, and force calm
+                self._ema = self.baseline
+                self._state = 0
+        else:
+            self._idle_count = 0
+
+        # hysteresis on the EMA
         if self._state == 0 and self._ema >= self.on_t:
             self._state = 1
         elif self._state == 1 and self._ema <= self.off_t:
             self._state = 0
+
         return float(self._ema), int(self._state)
+
+    def force_off(self) -> None:
+        self._state = 0
 
 
 # ---------- Per-user Platt calibrator ----------
@@ -114,9 +133,7 @@ class PlattCalibrator:
         self.intercept_ = float(lr.intercept_[0])
 
     def predict_proba(self, scores: np.ndarray) -> np.ndarray:
-        if not self.is_fit():
-            # identity-ish fallback
-            return 1.0 / (1.0 + np.exp(-scores))
+        # Only meaningful after fit(); callers should check is_fit()
         z = self.coef_ * scores + self.intercept_
         return 1.0 / (1.0 + np.exp(-z))
 
@@ -138,6 +155,20 @@ class PlattCalibrator:
 
 
 # ---------- Core predictor ----------
+def _is_idle(row: Dict, eps: float = 1e-6) -> bool:
+    """Heuristic: absolutely no keyboard/mouse activity in this 30s window."""
+    ks_events = float(row.get("ks_event_count", 0.0) or 0.0)
+    kd = float(row.get("ks_keydowns", 0.0) or 0.0)
+    ku = float(row.get("ks_keyups", 0.0) or 0.0)
+    mm = float(row.get("mouse_move_count", 0.0) or 0.0)
+    mc = float(row.get("mouse_click_count", 0.0) or 0.0)
+    ms = float(row.get("mouse_scroll_count", 0.0) or 0.0)
+    act = float(row.get("active_seconds_fraction", 0.0) or 0.0)
+    return (ks_events <= eps and kd <= eps and ku <= eps and
+            mm <= eps and mc <= eps and ms <= eps and
+            act <= 0.02)  # ~ < 1 sec activity over 30s
+
+
 class BehaviorPredictor:
     def __init__(self):
         meta = _load_meta()
@@ -154,7 +185,14 @@ class BehaviorPredictor:
 
         # thresholds from training (used to set hysteresis)
         self.default_thresh = float(meta.get("best_thresh", 0.5))
-        self.alpha = 0.5  # EMA strength (can be tuned)
+
+        # Smoother defaults (less sticky); surfaced here for clarity
+        self.alpha = 0.35
+        self.on_delta = 0.10
+        self.off_delta = 0.10
+
+        # Idle clamp configuration
+        self.idle_clamp = float(meta.get("idle_clamp_prob", 0.10))  # probability to use when fully idle
 
     def _head_prob(self, Xz: np.ndarray) -> float:
         # LogisticRegression: use predict_proba
@@ -173,18 +211,33 @@ class BehaviorPredictor:
         cal = load_user_calibrator(user_id)
         if cal.is_fit():
             cal_prob = float(cal.predict_proba(np.array([raw_prob]))[0])
+            has_cal = True
         else:
             cal_prob = raw_prob
+            has_cal = False
 
-        # Temporal smoothing + hysteresis
+        # Idle guard: if truly no activity, clamp low and force smoother off
+        idle = _is_idle(row)
+        if idle:
+            cal_prob = min(cal_prob, self.idle_clamp)
+
+        # Temporal smoothing + hysteresis (activity-aware)
         if smoother is None:
-            # default hysteresis around the training threshold
             smoother = TemporalSmoother(
-                alpha=self.alpha,
-                on_thresh=self.default_thresh + 0.05,
-                off_thresh=self.default_thresh - 0.05,
+                alpha_active=self.alpha,                             # normal smoothing
+                alpha_idle=0.85,                                     # fast decay when idle
+                on_thresh=self.default_thresh + self.on_delta,       # e.g., 0.60
+                off_thresh=self.default_thresh - self.off_delta,     # e.g., 0.40
+                idle_reset_k=2,                                      # consecutive idle windows to snap back
+                baseline=0.20,                                       # calm baseline
             )
-        smoothed, is_on = smoother.step(cal_prob)
+        smoothed, is_on = smoother.step(cal_prob, is_idle=idle)
+
+        # If we clamped as idle, ensure label is Calm immediately
+        if idle:
+            smoother.force_off()
+            is_on = 0
+            # Keep smoothed as is (EMA continues), but decision is calm.
 
         return {
             "raw_prob": raw_prob,
@@ -192,7 +245,7 @@ class BehaviorPredictor:
             "smoothed_prob": smoothed,
             "is_stressed": bool(is_on),
             "threshold_used": self.default_thresh,
-            "has_calibrator": cal.is_fit(),
+            "has_calibrator": has_cal,
         }
 
 
@@ -216,13 +269,18 @@ def health_check() -> Dict:
     try:
         meta = _load_meta()
         head_path = _autodiscover_head(meta)
-        ok = SCALER_PKL.exists() and head_path.exists()
+        # Show the effective smoother parameters we'll use
+        alpha = 0.35
+        on_t = float(meta.get("best_thresh", 0.5)) + 0.10
+        off_t = float(meta.get("best_thresh", 0.5)) - 0.10
         return {
-            "ok": bool(ok),
+            "ok": bool(SCALER_PKL.exists() and head_path.exists()),
             "mode": meta.get("mode"),
             "features": meta.get("feature_names"),
             "artifacts_dir": str(ART),
             "labels_dir": str(LAB),
+            "smoother": {"alpha": alpha, "on": on_t, "off": off_t},
+            "idle_clamp_prob": float(meta.get("idle_clamp_prob", 0.10)),
         }
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -239,14 +297,73 @@ def predict_from_row(row: Dict, user_id: Optional[str] = None) -> Dict:
     with _LOCK:
         smoother = _SMOOTHERS.get(uid)
         if smoother is None:
+            # IMPORTANT: use alpha_active / alpha_idle (no 'alpha' kw)
             smoother = TemporalSmoother(
-                alpha=pred.alpha,
-                on_thresh=pred.default_thresh + 0.05,
-                off_thresh=pred.default_thresh - 0.05,
+                alpha_active=pred.alpha,
+                alpha_idle=0.85,
+                on_thresh=pred.default_thresh + pred.on_delta,
+                off_thresh=pred.default_thresh - pred.off_delta,
+                idle_reset_k=2,
+                baseline=0.20,
             )
             _SMOOTHERS[uid] = smoother
+
+    # Build x in the trained order so we can report non-zero count
+    x = _extract_features(row, pred.feature_names)
     out = pred.predict({**row, "user_id": uid}, smoother)
-    return {"user_id": uid, **out, "feature_count": len(pred.feature_names)}
+
+    # Small debug summary so you can verify backend sees activity (or idle)
+    activity_summary = {
+        "ks_event_count": float(row.get("ks_event_count", 0.0) or 0.0),
+        "ks_keydowns": float(row.get("ks_keydowns", 0.0) or 0.0),
+        "ks_keyups": float(row.get("ks_keyups", 0.0) or 0.0),
+        "mouse_move_count": float(row.get("mouse_move_count", 0.0) or 0.0),
+        "mouse_click_count": float(row.get("mouse_click_count", 0.0) or 0.0),
+        "mouse_scroll_count": float(row.get("mouse_scroll_count", 0.0) or 0.0),
+        "active_seconds_fraction": float(row.get("active_seconds_fraction", 0.0) or 0.0),
+    }
+
+    return {
+        "user_id": uid,
+        **out,
+        "feature_count": len(pred.feature_names),
+        "nonzero_features": _nz_count(x),
+        "activity": activity_summary,
+    }
+
+# ---- Return the latest 30s feature row from labels/stress_30s.csv ----
+def latest_window_features(user_id: str | None = None) -> dict:
+    """
+    Loads the last row from labels/stress_30s.csv and returns ONLY the
+    feature fields used at training time (meta.feature_names), coerced to float.
+    Missing values => 0.0.
+    """
+    init_service()
+    pred = get_predictor()
+
+    csv_path = LAB / "stress_30s.csv"
+    if not csv_path.exists():
+        raise FileNotFoundError(f"No CSV found at {csv_path}")
+
+    # read only tail for speed
+    df = pd.read_csv(csv_path)
+    if len(df) == 0:
+        raise ValueError("CSV is empty.")
+
+    last = df.iloc[-1].to_dict()
+
+    # pick only the trained features
+    out = {}
+    for name in pred.feature_names:
+        try:
+            out[name] = float(last.get(name, 0.0) or 0.0)
+        except Exception:
+            out[name] = 0.0
+
+    # prefer provided user_id, else from CSV (if present), else "harsh"
+    uid = (user_id or last.get("user_id") or "harsh")
+    out["user_id"] = str(uid)
+    return out
 
 
 # ---------- Calibrator helpers ----------

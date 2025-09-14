@@ -12,6 +12,7 @@ import StressVisualizationPage from './pages/StressVisualization';
 import RelaxationTherapyPage from './pages/RelaxationTherapyPage';
 import ContactPage from './pages/ContactPage';
 import TrackUserMovements from './pages/TrackUserMovements';
+import StressBehaviour from './pages/StressBehaviour';
 
 function App() {
 	return (
@@ -28,6 +29,7 @@ function App() {
 				<Route path="/panic-chatbot" element={<PanicSOSChatbot/>}/>
 				<Route path="/music-relaxation" element={<RelaxationTherapyPage/>}/>
 				<Route path="/track-movements" element={<TrackUserMovements/>}/>
+				<Route path="/stress-behavior" element={<StressBehaviour />} />
 			</Routes>
 		</Router>
 	)

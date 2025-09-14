@@ -8,6 +8,13 @@ from services.auth_service import register_user, login_user
 from services.tracking_service import start_tracking, stop_tracking
 from services.stress_face_service import face_health, face_predict
 from services.chatbot_service import chat_with_bot, reset_session, sse_stream
+from services.stress_behavior_service import (
+    init_service as behavior_init_service,
+    health_check as behavior_health_check,
+    predict_from_row as behavior_predict_from_row,
+    train_user_calibrator as behavior_train_user_calibrator,
+    latest_window_features as behavior_latest_window_features
+)
 
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
 from flask_cors import CORS
@@ -27,6 +34,8 @@ db.init_app(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
 
+# Initialize behavior predictor once at startup (CPU-only, lightweight)
+behavior_init_service()
 
 # -----------------------------------------
 # PID-based tracker cleanup on Flask exit
@@ -84,6 +93,62 @@ def stress_face_predict():
     # You can store per-user analytics here if desired.
     # e.g., log user id + timestamp + confidence, etc.
     return face_predict(request)  # returns (json, status)
+
+
+# -------- Stress Behavior (keyboard/mouse) - NEW (JWT optional) --------
+@app.route("/api/stress/behavior/health", methods=["GET"])
+@jwt_required(optional=True)
+def stress_behavior_health():
+    # Lightweight check of artifacts & feature list
+    return jsonify(behavior_health_check())
+
+@app.route("/api/stress/behavior/predict", methods=["POST"])
+@jwt_required(optional=True)
+def stress_behavior_predict():
+    """
+    Body JSON: one 30s behavior window with the same feature names used during training.
+    Missing fields default to 0.0 inside the service.
+    Optionally include "user_id"; otherwise we use JWT identity if present.
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        uid = get_jwt_identity()
+        if uid is not None and "user_id" not in payload:
+            payload["user_id"] = str(uid)
+        result = behavior_predict_from_row(payload, user_id=payload.get("user_id"))
+        return jsonify({"ok": True, "result": result}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+@app.route("/api/stress/behavior/calibrate", methods=["POST"])
+@jwt_required(optional=True)
+def stress_behavior_calibrate():
+    """
+    Fits a per-user Platt calibrator from labels/stress_30s.csv.
+    Body JSON: { "user_id": "harsh", "min_rows": 200 }  # both optional
+    """
+    try:
+        body = request.get_json(silent=True) or {}
+        user_id = str(body.get("user_id") or (get_jwt_identity() or "harsh"))
+        min_rows = int(body.get("min_rows") or 200)
+        path = behavior_train_user_calibrator(user_id=user_id, min_rows=min_rows)
+        return jsonify({"ok": True, "user_id": user_id, "calibrator_path": path}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    
+@app.route("/api/stress/behavior/latest-window", methods=["GET"])
+@jwt_required(optional=True)
+def stress_behavior_latest_window():
+    """
+    Returns the latest 30s aggregate features (keys match training features),
+    sourced from labels/stress_30s.csv.
+    """
+    try:
+        uid = get_jwt_identity()
+        feats = behavior_latest_window_features(user_id=uid)
+        return jsonify({"ok": True, "features": feats}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 # -------- Chat management --------
